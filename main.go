@@ -37,6 +37,39 @@ func main() {
 	curr, _ := redisConn.client.LRange(ctx, settings.CowrieKey, 0, -1).Result()
 	for _, val := range curr {
 		err = json.Unmarshal([]byte(val), &results)
-		fmt.Println(results["src_ip"])
+		switch results["eventid"] {
+		case "cowrie.login.success":
+			var cls CowrieLoginSuccess
+			json.Unmarshal([]byte(val), &cls)
+			fmt.Println(cls.Eventid, cls.Username, cls.Password)
+		case "cowrie.login.failed":
+			fmt.Println("CowrieLoginFailed")
+		case "cowrie.session.connect":
+			fmt.Println("CowrieSessionConnect")
+		case "cowrie.session.params":
+			fmt.Println("CowrieSessionParams")
+		case "cowrie.session.closed":
+			fmt.Println("CowrieSessionClosed")
+		case "cowrie.session.file_download":
+			fmt.Println("CowrieSessionFileDownload")
+		case "cowrie.command.input":
+			fmt.Println("CowrieCommandInput")
+		case "cowrie.command.failed":
+			fmt.Println("CowrieCommandFailed")
+		case "cowrie.direct-tcpip.request":
+			fmt.Println("CowrieDirectTCPIPRequest")
+		case "cowrie.direct-tcpip.data":
+			fmt.Println("CowrieDirectTCPIPData")
+		case "cowrie.client.fingerprint":
+			fmt.Println("CowrieClientFingerprint")
+		case "cowrie.client.kex":
+			fmt.Println("CowrieClientKex")
+		case "cowrie.client.version":
+			fmt.Println("CowrieClientVersion")
+		case "cowrie.log.closed":
+			fmt.Println("CowrieLogClosed")
+		default:
+			fmt.Println("EventID not supported...")
+		}
 	}
 }
