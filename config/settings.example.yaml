@@ -1,14 +1,14 @@
 ---
-  redis-url: "localhost"
-  redis-port: 6379
-  redis-password: ""
+redis-url: "localhost"
+redis-port: 6379
+redis-password: ""
 
-  cowrie-key: ""
+cowrie-key: ""
 
-  influx-address: ""
-  influx-token: ""
-  influx-organization: ""
-  influx-bucket: ""
-  influx-measurement: ""
+influx-address: ""
+influx-token: ""
+influx-organization: ""
+influx-bucket: ""
+influx-measurement: ""
 
-  ipinfo-key: ""
+ipinfo-key: ""
