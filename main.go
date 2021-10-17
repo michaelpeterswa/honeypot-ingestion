@@ -3,15 +3,18 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
+	"time"
 
+	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
 
 var settings Settings
 var redisConn *RedisConn
+var influxConn *InfluxConn
+var ipinfoConn *IPInfoConn
 var ctx = context.Background()
 
 func main() {
@@ -26,50 +29,69 @@ func main() {
 	}
 
 	redisConn = initRedis()
+	influxConn = initInflux()
+	ipinfoConn = initIPInfo()
 
-	listLen, err := redisConn.client.LLen(ctx, settings.CowrieKey).Uint64()
-	if err != nil {
-		logger.Error("CowrieKey length failed to Uint64()", zap.Error(err))
-	} else {
-		fmt.Println(listLen)
+	for {
+		logEntry := redisConn.client.BRPop(ctx, time.Minute, settings.CowrieKey)
+		ProcessCowrieLogEntry(logEntry)
 	}
-	var results map[string]interface{}
-	curr, _ := redisConn.client.LRange(ctx, settings.CowrieKey, 0, -1).Result()
-	for _, val := range curr {
-		err = json.Unmarshal([]byte(val), &results)
-		switch results["eventid"] {
-		case "cowrie.login.success":
-			var cls CowrieLoginSuccess
-			json.Unmarshal([]byte(val), &cls)
-			fmt.Println(cls.Eventid, cls.Username, cls.Password)
-		case "cowrie.login.failed":
-			fmt.Println("CowrieLoginFailed")
-		case "cowrie.session.connect":
-			fmt.Println("CowrieSessionConnect")
-		case "cowrie.session.params":
-			fmt.Println("CowrieSessionParams")
-		case "cowrie.session.closed":
-			fmt.Println("CowrieSessionClosed")
-		case "cowrie.session.file_download":
-			fmt.Println("CowrieSessionFileDownload")
-		case "cowrie.command.input":
-			fmt.Println("CowrieCommandInput")
-		case "cowrie.command.failed":
-			fmt.Println("CowrieCommandFailed")
-		case "cowrie.direct-tcpip.request":
-			fmt.Println("CowrieDirectTCPIPRequest")
-		case "cowrie.direct-tcpip.data":
-			fmt.Println("CowrieDirectTCPIPData")
-		case "cowrie.client.fingerprint":
-			fmt.Println("CowrieClientFingerprint")
-		case "cowrie.client.kex":
-			fmt.Println("CowrieClientKex")
-		case "cowrie.client.version":
-			fmt.Println("CowrieClientVersion")
-		case "cowrie.log.closed":
-			fmt.Println("CowrieLogClosed")
-		default:
-			fmt.Println("EventID not supported...")
-		}
+}
+
+func ProcessCowrieLogEntry(obj *redis.StringSliceCmd) {
+	var tmp map[string]interface{}
+	result, err := obj.Result()
+	if err == redis.Nil {
+		logger.Info("Queue is currently empty...", zap.String("key", settings.CowrieKey))
+		return
+	} else if err != nil {
+		logger.Error("Unable to get result from *redis.StringSliceCmd")
+		return
+	}
+	data := result[1]
+	err = json.Unmarshal([]byte(data), &tmp)
+	if err != nil {
+		logger.Error("Unable to get result from *redis.StringSliceCmd")
+		return
+	}
+	eventid := tmp["eventid"]
+
+	switch eventid {
+	case "cowrie.login.success":
+		var cls CowrieLoginSuccess
+		json.Unmarshal([]byte(data), &cls)
+		geo := getGeoIPInfo(cls.SrcIP)
+		influxConn.writeCowrieLoginSuccess(cls, geo)
+	case "cowrie.login.failed":
+		var clf CowrieLoginFailed
+		json.Unmarshal([]byte(data), &clf)
+		geo := getGeoIPInfo(clf.SrcIP)
+		influxConn.writeCowrieLoginFailed(clf, geo)
+	case "cowrie.session.connect":
+		break
+	case "cowrie.session.params":
+		break
+	case "cowrie.session.closed":
+		break
+	case "cowrie.session.file_download":
+		break
+	case "cowrie.command.input":
+		break
+	case "cowrie.command.failed":
+		break
+	case "cowrie.direct-tcpip.request":
+		break
+	case "cowrie.direct-tcpip.data":
+		break
+	case "cowrie.client.fingerprint":
+		break
+	case "cowrie.client.kex":
+		break
+	case "cowrie.client.version":
+		break
+	case "cowrie.log.closed":
+		break
+	default:
+		break
 	}
 }

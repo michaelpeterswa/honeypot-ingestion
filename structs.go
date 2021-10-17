@@ -8,6 +8,14 @@ type Settings struct {
 	RedisPassword string `yaml:"redis-password"`
 
 	CowrieKey string `yaml:"cowrie-key"`
+
+	InfluxAddress      string `yaml:"influx-address"`
+	InfluxToken        string `yaml:"influx-token"`
+	InfluxOrganization string `yaml:"influx-organization"`
+	InfluxBucket       string `yaml:"influx-bucket"`
+	InfluxMeasurement  string `yaml:"influx-measurement"`
+
+	IPInfoKey string `yaml:"ipinfo-key"`
 }
 
 // cowrie.login.success

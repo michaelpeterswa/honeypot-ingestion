@@ -4,3 +4,11 @@
   redis-password: ""
 
   cowrie-key: ""
+
+  influx-address: ""
+  influx-token: ""
+  influx-organization: ""
+  influx-bucket: ""
+  influx-measurement: ""
+
+  ipinfo-key: ""
