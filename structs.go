@@ -16,6 +16,8 @@ type Settings struct {
 	InfluxMeasurement  string `yaml:"influx-measurement"`
 
 	IPInfoKey string `yaml:"ipinfo-key"`
+
+	ZapLevel string `yaml:"zap-level"`
 }
 
 // cowrie.login.success

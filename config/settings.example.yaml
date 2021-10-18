@@ -12,3 +12,6 @@ influx-bucket: ""
 influx-measurement: ""
 
 ipinfo-key: ""
+
+# dev or prod
+zap-level: "prod"

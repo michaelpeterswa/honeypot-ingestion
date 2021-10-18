@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"go.uber.org/zap"
@@ -43,7 +44,7 @@ func (conn *InfluxConn) writeCowrieLoginSuccess(cls CowrieLoginSuccess, geo GeoD
 		AddField("location", geo.Location).
 		AddField("latitude", geo.Latitude).
 		AddField("longitude", geo.Longitude).
-		SetTime(cls.Timestamp)
+		SetTime(time.Now())
 
 	write := conn.client.WriteAPIBlocking(getOrganization(), getBucket())
 	err := write.WritePoint(context.Background(), p)
@@ -70,7 +71,63 @@ func (conn *InfluxConn) writeCowrieLoginFailed(clf CowrieLoginFailed, geo GeoDat
 		AddField("location", geo.Location).
 		AddField("latitude", geo.Latitude).
 		AddField("longitude", geo.Longitude).
-		SetTime(clf.Timestamp)
+		SetTime(time.Now())
+
+	write := conn.client.WriteAPIBlocking(getOrganization(), getBucket())
+	err := write.WritePoint(context.Background(), p)
+	if err != nil {
+		logger.Error("Write to InfluxDB failed...", zap.Error(err))
+	}
+}
+
+func (conn *InfluxConn) writeCowrieSessionConnect(csc CowrieSessionConnect, geo GeoData) {
+	p := influxdb2.NewPointWithMeasurement(settings.InfluxMeasurement).
+		AddTag("type", "cowrie.session.connect").
+		AddField("system", csc.System).
+		AddField("eventid", csc.Eventid).
+		AddField("srcip", csc.SrcIP).
+		AddField("srcport", csc.SrcPort).
+		AddField("dstip", csc.DstIP).
+		AddField("dstport", csc.DstPort).
+		AddField("session", csc.Session).
+		AddField("protocol", csc.Protocol).
+		AddField("message", csc.Message).
+		AddField("time", csc.Time).
+		AddField("sensor", csc.Sensor).
+		AddField("city", geo.City).
+		AddField("country", geo.Country).
+		AddField("region", geo.Region).
+		AddField("location", geo.Location).
+		AddField("latitude", geo.Latitude).
+		AddField("longitude", geo.Longitude).
+		SetTime(time.Now())
+
+	write := conn.client.WriteAPIBlocking(getOrganization(), getBucket())
+	err := write.WritePoint(context.Background(), p)
+	if err != nil {
+		logger.Error("Write to InfluxDB failed...", zap.Error(err))
+	}
+}
+
+func (conn *InfluxConn) writeCowrieCommandInput(cci CowrieCommandInput, geo GeoData) {
+	p := influxdb2.NewPointWithMeasurement(settings.InfluxMeasurement).
+		AddTag("type", "cowrie.command.input").
+		AddField("system", cci.System).
+		AddField("eventid", cci.Eventid).
+		AddField("input", cci.Input).
+		AddField("message", cci.Message).
+		AddField("time", cci.Time).
+		AddField("sensor", cci.Sensor).
+		AddField("timestamp", cci.Timestamp).
+		AddField("srcip", cci.SrcIP).
+		AddField("session", cci.Session).
+		AddField("city", geo.City).
+		AddField("country", geo.Country).
+		AddField("region", geo.Region).
+		AddField("location", geo.Location).
+		AddField("latitude", geo.Latitude).
+		AddField("longitude", geo.Longitude).
+		SetTime(time.Now())
 
 	write := conn.client.WriteAPIBlocking(getOrganization(), getBucket())
 	err := write.WritePoint(context.Background(), p)

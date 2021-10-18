@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 	"time"
 
@@ -20,14 +21,15 @@ var ctx = context.Background()
 func main() {
 	fileSettings, err := os.ReadFile("config/settings.yaml")
 	if err != nil {
-		logger.Fatal("Error loading settings.yaml file")
+		log.Println("Error loading settings.yaml file")
 	}
 
 	err = yaml.Unmarshal(fileSettings, &settings)
 	if err != nil {
-		logger.Fatal("Error unmarshalling settings")
+		log.Println("Error unmarshalling settings")
 	}
 
+	initLogger(settings.ZapLevel)
 	redisConn = initRedis()
 	influxConn = initInflux()
 	ipinfoConn = initIPInfo()
@@ -42,7 +44,7 @@ func ProcessCowrieLogEntry(obj *redis.StringSliceCmd) {
 	var tmp map[string]interface{}
 	result, err := obj.Result()
 	if err == redis.Nil {
-		logger.Info("Queue is currently empty...", zap.String("key", settings.CowrieKey))
+		logger.Debug("Queue is currently empty...", zap.String("key", settings.CowrieKey))
 		return
 	} else if err != nil {
 		logger.Error("Unable to get result from *redis.StringSliceCmd")
@@ -55,6 +57,7 @@ func ProcessCowrieLogEntry(obj *redis.StringSliceCmd) {
 		return
 	}
 	eventid := tmp["eventid"]
+	logger.Debug("Event Received!", zap.Any("eventid", eventid))
 
 	switch eventid {
 	case "cowrie.login.success":
@@ -68,7 +71,10 @@ func ProcessCowrieLogEntry(obj *redis.StringSliceCmd) {
 		geo := getGeoIPInfo(clf.SrcIP)
 		influxConn.writeCowrieLoginFailed(clf, geo)
 	case "cowrie.session.connect":
-		break
+		var csc CowrieSessionConnect
+		json.Unmarshal([]byte(data), &csc)
+		geo := getGeoIPInfo(csc.SrcIP)
+		influxConn.writeCowrieSessionConnect(csc, geo)
 	case "cowrie.session.params":
 		break
 	case "cowrie.session.closed":
@@ -76,7 +82,10 @@ func ProcessCowrieLogEntry(obj *redis.StringSliceCmd) {
 	case "cowrie.session.file_download":
 		break
 	case "cowrie.command.input":
-		break
+		var cci CowrieCommandInput
+		json.Unmarshal([]byte(data), &cci)
+		geo := getGeoIPInfo(cci.SrcIP)
+		influxConn.writeCowrieCommandInput(cci, geo)
 	case "cowrie.command.failed":
 		break
 	case "cowrie.direct-tcpip.request":
