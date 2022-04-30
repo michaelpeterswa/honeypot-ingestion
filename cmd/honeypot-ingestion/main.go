@@ -70,7 +70,7 @@ func (hpi HoneypotIngestion) ProcessCowrieLogEntry(ctx context.Context, obj *red
 		hpi.Logger.Debug("Queue is currently empty...", zap.String("key", hpi.Settings.CowrieKey))
 		return
 	} else if err != nil {
-		hpi.Logger.Error("Unable to get result from *redis.StringSliceCmd")
+		hpi.Logger.Error("Unable to get result from *redis.StringSliceCmd", zap.Error(err))
 		return
 	}
 	data := result[1]
