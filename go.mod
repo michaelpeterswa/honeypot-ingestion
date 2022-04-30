@@ -1,4 +1,4 @@
-module honeypot-ingestion
+module github.com/michaelpeterswa/honeypot-ingestion
 
 go 1.16
 

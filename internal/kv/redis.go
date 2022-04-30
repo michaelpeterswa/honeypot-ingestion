@@ -1,16 +1,17 @@
-package main
+package kv
 
 import (
 	"fmt"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/michaelpeterswa/honeypot-ingestion/internal/structs"
 )
 
 type RedisConn struct {
-	client redis.Client
+	Client redis.Client
 }
 
-func initRedis() *RedisConn {
+func InitRedis(settings structs.Settings) *RedisConn {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", settings.RedisURL, settings.RedisPort),
 		Password: settings.RedisPassword,

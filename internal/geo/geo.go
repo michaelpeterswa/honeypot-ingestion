@@ -1,6 +1,7 @@
-package main
+package geo
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"strconv"
@@ -9,11 +10,13 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/ipinfo/go/v2/ipinfo"
+	"github.com/michaelpeterswa/honeypot-ingestion/internal/kv"
+	"github.com/michaelpeterswa/honeypot-ingestion/internal/structs"
 	"go.uber.org/zap"
 )
 
 type IPInfoConn struct {
-	client ipinfo.Client
+	Client ipinfo.Client
 }
 
 type GeoData struct {
@@ -26,11 +29,11 @@ type GeoData struct {
 	Longitude float64
 }
 
-func initIPInfo() *IPInfoConn {
+func InitIPInfo(settings structs.Settings) *IPInfoConn {
 	return &IPInfoConn{*ipinfo.NewClient(nil, nil, settings.IPInfoKey)}
 }
 
-func printGeoData(geo GeoData) {
+func PrintGeoData(logger *zap.Logger, geo GeoData) {
 	logger.Debug("Current GeoData",
 		zap.String("ip", geo.IP),
 		zap.String("city", geo.City),
@@ -41,14 +44,14 @@ func printGeoData(geo GeoData) {
 		zap.Float64("longitude", geo.Longitude))
 }
 
-func getGeoIPInfo(ip string) GeoData {
+func GetGeoIPInfo(ctx context.Context, logger *zap.Logger, redisConn *kv.RedisConn, ipinfoConn *IPInfoConn, ip string) GeoData {
 	var info *ipinfo.Core
 	var geo GeoData
-	value := redisConn.client.Get(ctx, ip)
+	value := redisConn.Client.Get(ctx, ip)
 	result, err := value.Result()
 	if err == redis.Nil {
 		logger.Debug("Cache missed...", zap.Error(err))
-		info, err = ipinfoConn.client.GetIPInfo(net.ParseIP(ip))
+		info, err = ipinfoConn.Client.GetIPInfo(net.ParseIP(ip))
 		if err != nil {
 			logger.Error("Unable to parse IP and get info...", zap.Error(err), zap.String("ip", ip))
 		}
@@ -57,13 +60,13 @@ func getGeoIPInfo(ip string) GeoData {
 		if err != nil {
 			logger.Error("Couldn't marshal GeoData")
 		}
-		redisConn.client.Set(ctx, ip, bytes, time.Hour*168)
+		redisConn.Client.Set(ctx, ip, bytes, time.Hour*168)
 		logger.Debug("Cache Set...", zap.ByteString("payload", bytes))
 		geo = newGeo
 	} else {
 		logger.Debug("Cache Hit...", zap.String("data", result))
 		json.Unmarshal([]byte(result), &geo)
-		printGeoData(geo)
+		PrintGeoData(logger, geo)
 	}
 
 	return geo

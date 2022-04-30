@@ -1,0 +1,28 @@
+---
+on: push  # yamllint disable-line rule:truthy
+name: Lint
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - run: npm install --save-dev @commitlint/{config-conventional,cli}
+      - run: npx commitlint --from=${{ github.event.pull_request.base.sha }}
+  yaml-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: yaml-lint
+        uses: ibiqlik/action-yamllint@v3
+  hadolint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: hadolint/hadolint-action@v2.0.0
+        with:
+          dockerfile: Dockerfile
