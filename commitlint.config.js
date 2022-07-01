@@ -3,5 +3,13 @@ module.exports = {
     ignores: [
         (message) => message.includes('Initial commit')
     ],
-    'type-enum': ['feat', 'fix', 'ci', 'docs', 'lint', 'test'],
+    rules: {
+        'type-enum': [
+            2,
+            'always',
+            [
+            'feat', 'fix', 'docs', 'lint', 'ci', 'test', 'revert',
+            ],
+        ],
+    },
 };
