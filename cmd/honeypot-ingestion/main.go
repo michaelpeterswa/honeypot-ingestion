@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"676f.dev/zinc"
+	zredis "676f.dev/zinc/redis"
 	"github.com/michaelpeterswa/honeypot-ingestion/internal/db"
 	"github.com/michaelpeterswa/honeypot-ingestion/internal/geo"
-	"github.com/michaelpeterswa/honeypot-ingestion/internal/kv"
-	"github.com/michaelpeterswa/honeypot-ingestion/internal/logging"
 	"github.com/michaelpeterswa/honeypot-ingestion/internal/structs"
 
 	"github.com/go-redis/redis/v8"
@@ -21,12 +22,12 @@ import (
 type HoneypotIngestion struct {
 	Logger     *zap.Logger
 	Settings   structs.Settings
-	RedisConn  *kv.RedisConn
+	RedisConn  *zredis.RedisClient
 	InfluxConn *db.InfluxConn
 	IPInfoConn *geo.IPInfoConn
 }
 
-func NewHoneypotIngestion(l *zap.Logger, s structs.Settings, r *kv.RedisConn, i *db.InfluxConn, ip *geo.IPInfoConn) HoneypotIngestion {
+func NewHoneypotIngestion(l *zap.Logger, s structs.Settings, r *zredis.RedisClient, i *db.InfluxConn, ip *geo.IPInfoConn) HoneypotIngestion {
 	return HoneypotIngestion{
 		Logger:     l,
 		Settings:   s,
@@ -42,20 +43,36 @@ func main() {
 
 	fileSettings, err := os.ReadFile("config/settings.yaml")
 	if err != nil {
-		log.Println("Error loading settings.yaml file")
+		log.Fatalln("Error loading settings.yaml file: ", err)
 	}
 
 	err = yaml.Unmarshal(fileSettings, &settings)
 	if err != nil {
-		log.Println("Error unmarshalling settings")
+		log.Fatalln("Error unmarshalling settings: ", err)
 	}
 
-	logger, err := logging.InitLogger(settings.ZapLevel)
+	logger, err := zinc.InitLogger(settings.ZapLevel)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("Error initializing logger: ", err)
 	}
 
-	honeypotIngestion := NewHoneypotIngestion(logger, settings, kv.InitRedis(settings), db.InitInflux(logger, settings), geo.InitIPInfo(settings))
+	influx, err := zinc.InitInfluxDB(ctx, settings.InfluxAddress, settings.InfluxToken)
+	if err != nil {
+		logger.Fatal("Error initializing InfluxDB", zap.Error(err))
+	}
+
+	redis := zredis.NewRedisClient(logger,
+		&redis.Options{
+			Addr:     fmt.Sprintf("%s:%d", settings.RedisURL, settings.RedisPort),
+			Password: settings.RedisPassword,
+			DB:       0,
+		},
+		influx,
+		settings.InfluxOrganization,
+		settings.InfluxBucket,
+	)
+
+	honeypotIngestion := NewHoneypotIngestion(logger, settings, redis, db.InitInflux(logger, influx), geo.InitIPInfo(settings))
 
 	for {
 		logEntry := honeypotIngestion.RedisConn.Client.BRPop(ctx, time.Minute, settings.CowrieKey)
@@ -86,17 +103,29 @@ func (hpi HoneypotIngestion) ProcessCowrieLogEntry(ctx context.Context, obj *red
 	case "cowrie.login.success":
 		var cls structs.CowrieLoginSuccess
 		json.Unmarshal([]byte(data), &cls)
-		geo := geo.GetGeoIPInfo(ctx, hpi.Logger, hpi.RedisConn, hpi.IPInfoConn, cls.SrcIP)
+		geo, err := geo.GetGeoIPInfo(ctx, hpi.Logger, hpi.RedisConn, hpi.IPInfoConn, cls.SrcIP)
+		if err != nil {
+			hpi.Logger.Error("Unable to get geoip info", zap.Error(err))
+			return
+		}
 		hpi.InfluxConn.WriteCowrieLoginSuccess(hpi.Logger, hpi.Settings, cls, geo)
 	case "cowrie.login.failed":
 		var clf structs.CowrieLoginFailed
 		json.Unmarshal([]byte(data), &clf)
-		geo := geo.GetGeoIPInfo(ctx, hpi.Logger, hpi.RedisConn, hpi.IPInfoConn, clf.SrcIP)
+		geo, err := geo.GetGeoIPInfo(ctx, hpi.Logger, hpi.RedisConn, hpi.IPInfoConn, clf.SrcIP)
+		if err != nil {
+			hpi.Logger.Error("Unable to get geoip info", zap.Error(err))
+			return
+		}
 		hpi.InfluxConn.WriteCowrieLoginFailed(hpi.Logger, hpi.Settings, clf, geo)
 	case "cowrie.session.connect":
 		var csc structs.CowrieSessionConnect
 		json.Unmarshal([]byte(data), &csc)
-		geo := geo.GetGeoIPInfo(ctx, hpi.Logger, hpi.RedisConn, hpi.IPInfoConn, csc.SrcIP)
+		geo, err := geo.GetGeoIPInfo(ctx, hpi.Logger, hpi.RedisConn, hpi.IPInfoConn, csc.SrcIP)
+		if err != nil {
+			hpi.Logger.Error("Unable to get geoip info", zap.Error(err))
+			return
+		}
 		hpi.InfluxConn.WriteCowrieSessionConnect(hpi.Logger, hpi.Settings, csc, geo)
 	case "cowrie.session.params":
 		break
@@ -107,7 +136,11 @@ func (hpi HoneypotIngestion) ProcessCowrieLogEntry(ctx context.Context, obj *red
 	case "cowrie.command.input":
 		var cci structs.CowrieCommandInput
 		json.Unmarshal([]byte(data), &cci)
-		geo := geo.GetGeoIPInfo(ctx, hpi.Logger, hpi.RedisConn, hpi.IPInfoConn, cci.SrcIP)
+		geo, err := geo.GetGeoIPInfo(ctx, hpi.Logger, hpi.RedisConn, hpi.IPInfoConn, cci.SrcIP)
+		if err != nil {
+			hpi.Logger.Error("Unable to get geoip info", zap.Error(err))
+			return
+		}
 		hpi.InfluxConn.WriteCowrieCommandInput(hpi.Logger, hpi.Settings, cci, geo)
 	case "cowrie.command.failed":
 		break

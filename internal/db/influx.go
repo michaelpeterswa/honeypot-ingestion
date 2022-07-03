@@ -14,13 +14,12 @@ type InfluxConn struct {
 	client influxdb2.Client
 }
 
-func InitInflux(logger *zap.Logger, settings structs.Settings) *InfluxConn {
+func InitInflux(logger *zap.Logger, client influxdb2.Client) *InfluxConn {
 	logger.Info("Creating InfluxDB v2 connection...")
-	client := influxdb2.NewClient(settings.InfluxAddress, settings.InfluxToken)
 	return &InfluxConn{client}
 }
 
-func (conn *InfluxConn) WriteCowrieLoginSuccess(logger *zap.Logger, settings structs.Settings, cls structs.CowrieLoginSuccess, geo geo.GeoData) {
+func (conn *InfluxConn) WriteCowrieLoginSuccess(logger *zap.Logger, settings structs.Settings, cls structs.CowrieLoginSuccess, geo *geo.GeoData) {
 	p := influxdb2.NewPointWithMeasurement(settings.InfluxMeasurement).
 		AddTag("type", "cowrie.login.success").
 		AddField("system", cls.System).
@@ -47,7 +46,7 @@ func (conn *InfluxConn) WriteCowrieLoginSuccess(logger *zap.Logger, settings str
 	}
 }
 
-func (conn *InfluxConn) WriteCowrieLoginFailed(logger *zap.Logger, settings structs.Settings, clf structs.CowrieLoginFailed, geo geo.GeoData) {
+func (conn *InfluxConn) WriteCowrieLoginFailed(logger *zap.Logger, settings structs.Settings, clf structs.CowrieLoginFailed, geo *geo.GeoData) {
 	p := influxdb2.NewPointWithMeasurement(settings.InfluxMeasurement).
 		AddTag("type", "cowrie.login.failed").
 		AddField("system", clf.System).
@@ -74,7 +73,7 @@ func (conn *InfluxConn) WriteCowrieLoginFailed(logger *zap.Logger, settings stru
 	}
 }
 
-func (conn *InfluxConn) WriteCowrieSessionConnect(logger *zap.Logger, settings structs.Settings, csc structs.CowrieSessionConnect, geo geo.GeoData) {
+func (conn *InfluxConn) WriteCowrieSessionConnect(logger *zap.Logger, settings structs.Settings, csc structs.CowrieSessionConnect, geo *geo.GeoData) {
 	p := influxdb2.NewPointWithMeasurement(settings.InfluxMeasurement).
 		AddTag("type", "cowrie.session.connect").
 		AddField("system", csc.System).
@@ -103,7 +102,7 @@ func (conn *InfluxConn) WriteCowrieSessionConnect(logger *zap.Logger, settings s
 	}
 }
 
-func (conn *InfluxConn) WriteCowrieCommandInput(logger *zap.Logger, settings structs.Settings, cci structs.CowrieCommandInput, geo geo.GeoData) {
+func (conn *InfluxConn) WriteCowrieCommandInput(logger *zap.Logger, settings structs.Settings, cci structs.CowrieCommandInput, geo *geo.GeoData) {
 	p := influxdb2.NewPointWithMeasurement(settings.InfluxMeasurement).
 		AddTag("type", "cowrie.command.input").
 		AddField("system", cci.System).
