@@ -5,8 +5,10 @@ go 1.16
 require (
 	676f.dev/zinc v0.0.2
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/influxdata/influxdb-client-go/v2 v2.9.1
 	github.com/ipinfo/go/v2 v2.5.3
+	github.com/prometheus/client_golang v1.12.2 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.21.0

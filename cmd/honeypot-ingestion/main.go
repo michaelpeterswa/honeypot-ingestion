@@ -5,14 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
 	"676f.dev/zinc"
 	zredis "676f.dev/zinc/redis"
+	"github.com/gorilla/mux"
 	"github.com/michaelpeterswa/honeypot-ingestion/internal/db"
 	"github.com/michaelpeterswa/honeypot-ingestion/internal/geo"
+	"github.com/michaelpeterswa/honeypot-ingestion/internal/handlers"
 	"github.com/michaelpeterswa/honeypot-ingestion/internal/structs"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
@@ -74,9 +78,20 @@ func main() {
 
 	honeypotIngestion := NewHoneypotIngestion(logger, settings, redis, db.InitInflux(logger, influx), geo.InitIPInfo(settings))
 
-	for {
-		logEntry := honeypotIngestion.RedisConn.Client.BRPop(ctx, time.Minute, settings.CowrieKey)
-		honeypotIngestion.ProcessCowrieLogEntry(ctx, logEntry)
+	go func() {
+		for {
+			logEntry := honeypotIngestion.RedisConn.Client.BRPop(ctx, time.Minute, settings.CowrieKey)
+			honeypotIngestion.ProcessCowrieLogEntry(ctx, logEntry)
+		}
+	}()
+
+	r := mux.NewRouter()
+	r.HandleFunc("/healthcheck", handlers.HealthcheckHandler)
+	r.Handle("/metrics", promhttp.Handler())
+	http.Handle("/", r)
+	err = http.ListenAndServe(":8080", nil)
+	if err != nil {
+		logger.Fatal("could not start http server", zap.Error(err))
 	}
 }
 
