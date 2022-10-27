@@ -63,9 +63,14 @@ func GetGeoIPInfo(ctx context.Context, logger *zap.Logger, redisConn *zredis.Red
 		redisConn.Set(ctx, ip, string(bytes), time.Hour*168)
 		logger.Debug("Cache Set...", zap.ByteString("payload", bytes))
 		geo = newGeo
+	} else if err != nil {
+		return nil, err
 	} else {
 		logger.Debug("Cache Hit...", zap.String("data", value))
-		json.Unmarshal([]byte(value), &geo)
+		err := json.Unmarshal([]byte(value), &geo)
+		if err != nil {
+			return nil, err
+		}
 		PrintGeoData(logger, geo)
 	}
 
